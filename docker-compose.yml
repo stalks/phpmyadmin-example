@@ -9,8 +9,8 @@ services:
                         - sql1
                         - sql2
                 environment: 
-                        PMA_HOSTS: sql1,sql2
-                        PMA_CONTROLHOST: sql1
+                        PMA_HOSTS: pma-example-sql1,pma-example-sql2
+                        PMA_CONTROLHOST: pma-example-sql1
                         PMA_CONTROLUSER: pma
                         PMA_CONTROLPASS: pmapassword
                 networks:
