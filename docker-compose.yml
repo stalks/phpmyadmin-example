@@ -1,0 +1,235 @@
+version: '3.1'
+
+services:
+        front:
+                image: nginx:1.16
+                container_name: nginx-front
+                restart: unless-stopped
+                volumes:
+                        - front-config:/etc/nginx:ro
+                        - ssl:/etc/ssl/private:ro
+                        - certbot:/var/certbot/www:ro
+                environment: 
+                        - EXTERNAL_IP=192.168.7.224
+                networks:
+                        - proxy
+                ports:
+                        - '192.168.7.224:80:80'       # http
+                        - '192.168.7.224:443:443'     # https
+        sql:
+                image: mariadb:10.4
+                container_name: nginx-sql
+                environment:
+                        - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/root-dbpasswd
+                volumes:
+                        - sql:/var/lib/mysql
+                networks:
+                        - sql
+                secrets:
+                        - root-dbpasswd
+                healthcheck:
+                        test: ["CMD", "mysqladmin" ,"ping", "-u", "healthcheck"]
+                        timeout: 20s
+                        retries: 10
+        redis:
+                image: redis:5.0.7
+                container_name: nginx-redis
+        back:
+                image: nginx:1.16
+                container_name: nginx-back
+                restart: unless-stopped
+                depends_on:
+                        - phpmyadmin
+                        - wp-nooblet
+                        - wp-thelittlejedi
+                        - wp-cooshee
+                volumes:
+                        - back-config:/etc/nginx:ro
+                        # phpmyadmin
+                        - site-phpmyadmin:/var/www/virtual/nooblet.org/phpmyadmin:ro
+                        # nooblet.org/blog/
+                        - site-nooblet-wp:/var/www/virtual/nooblet.org/blog:ro
+                        - site-nooblet-wpcontent:/var/www/virtual/nooblet.org/blog/wp-content:ro
+                        - site-nooblet-files:/var/www/virtual/nooblet.org/files:ro
+                        # thelittlejedi.co.uk/
+                        - site-thelittlejedi:/var/www/virtual/thelittlejedi.co.uk:ro
+                        - site-thelittlejedi-wpcontent:/var/www/virtual/thelittlejedi.co.uk/wp-content:ro
+                        # cooshee.net/
+                        - site-cooshee:/var/www/virtual/cooshee.net:ro
+                        - site-cooshee-wpcontent:/var/www/virtual/cooshee.net/wp-content:ro
+                networks:
+                        - proxy
+                        - phpmyadmin
+                        - wp-nooblet
+                        - wp-littlejedi
+                        - wp-cooshee
+        phpmyadmin:
+                image: phpmyadmin/phpmyadmin:5.0.1-fpm-alpine
+                container_name: phpmyadmin
+                restart: unless-stopped
+                depends_on:
+                        - sql
+                environment: 
+                        PMA_ABSOLUTE_URI: https://nooblet.org/phpmyadmin
+                        PMA_HOSTS: nginx-sql,gitea-sql,phpipam-sql,powerdns-sql,seafile-sql,teamspeak3-sql,zabbix-sql
+                        UPLOAD_LIMIT: 1G
+                        PMA_CONTROLHOST: nginx-sql
+                        PMA_CONTROLUSER: phpmyadmin
+                        PMA_CONTROLPASS: 3JipL4KdwvKi9qh8m8Pcq
+                volumes:
+                        - site-phpmyadmin:/var/www/html
+                        - site-phpmyadmin-etc:/etc/phpmyadmin
+                networks:
+                        - phpmyadmin
+                        - pma # for other sql containers
+                        - sql
+        wp-nooblet:
+                build: ./wordpress
+                image: nooblet/wordpress-php-fpm
+                container_name: wp-nooblet
+                depends_on: 
+                        - sql
+                environment:
+                        WORDPRESS_DB_NAME: wp_nooblet
+                        WORDPRESS_DB_HOST: sql
+                        WORDPRESS_DB_USER: wp_nooblet
+                        WORDPRESS_DB_PASSWORD_FILE: /run/secrets/wp-nooblet-dbpasswd
+                volumes:
+                        - site-nooblet-wp:/var/www/html
+                        - site-nooblet-wpcontent:/var/www/html/wp-content
+                        - site-nooblet-files:/var/www/html/files:ro
+                networks:
+                        - wp-nooblet
+                        - sql
+                secrets:
+                        - wp-nooblet-dbpasswd
+        wp-thelittlejedi:
+                build: ./wordpress
+                image: nooblet/wordpress-php-fpm
+                container_name: wp-thelittlejedi
+                depends_on: 
+                        - sql
+                environment:
+                        WORDPRESS_DB_NAME: wp_thelittlejedi
+                        WORDPRESS_DB_HOST: sql
+                        WORDPRESS_DB_USER: wp_thelittlejedi
+                        WORDPRESS_DB_PASSWORD_FILE: /run/secrets/wp-thelittlejedi-dbpasswd
+                volumes:
+                        - site-thelittlejedi:/var/www/html
+                        - site-thelittlejedi-wpcontent:/var/www/html/wp-content
+                networks:
+                        - wp-littlejedi
+                        - sql
+                secrets:
+                        - wp-thelittlejedi-dbpasswd
+        wp-cooshee:
+                build: ./wordpress
+                image: nooblet/wordpress-php-fpm
+                container_name: wp-cooshee
+                depends_on: 
+                        - sql
+                environment:
+                        WORDPRESS_DB_NAME: wp_cooshee
+                        WORDPRESS_DB_HOST: sql
+                        WORDPRESS_DB_USER: wp_cooshee
+                        WORDPRESS_DB_PASSWORD_FILE: /run/secrets/wp-cooshee-dbpasswd
+                volumes:
+                        - site-cooshee:/var/www/html
+                        - site-cooshee-wpcontent:/var/www/html/wp-content
+                networks:
+                        - wp-cooshee
+                        - sql
+                secrets:
+                        - wp-cooshee-dbpasswd
+
+
+        
+
+volumes:
+        front-config:   # nginx configuration
+                driver: local
+                driver_opts:
+                        type: none
+                        o: bind
+                        device: /data/docker/volumes/nginx-front-config
+        back-config:   # nginx configuration
+                driver: local
+                driver_opts:
+                        type: none
+                        o: bind
+                        device: /data/docker/volumes/nginx-back-config
+        certbot:        # non-persistent location for certbot acme-challenge files
+        ssl:            # ssl certificates
+                driver: local
+                driver_opts:
+                        type: none
+                        o: bind
+                        device: /data/docker/volumes/ssl-certs
+        sql:            # mariadb sql data
+                driver: local
+                driver_opts:
+                        type: none
+                        o: bind
+                        device: /data/docker/volumes/nginx-sql
+        site-nooblet-wp:                # nooblet wp root
+        site-nooblet-wpcontent:                 # nooblet wp-content
+                driver: local
+                driver_opts:
+                        type: none
+                        o: bind
+                        device: /data/docker/volumes/nginx-site-nooblet-wpcontent
+        site-nooblet-files:                 # nooblet wp-content
+                driver: local
+                driver_opts:
+                        type: none
+                        o: bind
+                        device: /data/docker/volumes/nginx-site-nooblet-files
+        site-thelittlejedi:          # thelittlejedi root
+        site-thelittlejedi-wpcontent:   # thelittlejedi wp-content
+                driver: local
+                driver_opts:
+                        type: none
+                        o: bind
+                        device: /data/docker/volumes/nginx-site-thelittlejedi-wpcontent
+        site-cooshee:          # cooshee root
+        site-cooshee-wpcontent:   # cooshee wp-content
+                driver: local
+                driver_opts:
+                        type: none
+                        o: bind
+                        device: /data/docker/volumes/nginx-site-cooshee-wpcontent
+        site-phpmyadmin:        # phpmyadmin root
+        site-phpmyadmin-etc:             # phpmyadmin configs
+                driver: local
+                driver_opts:
+                        type: none
+                        o: bind
+                        device: /data/docker/volumes/nginx-site-phpmyadmin-etc
+
+networks:
+        proxy:
+                external:
+                        name: shared-proxy
+        pma:
+                external:
+                        name: shared-pma
+        phpmyadmin:
+                driver: bridge
+        wp-nooblet:
+                driver: bridge
+        wp-littlejedi:
+                driver: bridge
+        wp-cooshee:
+                driver: bridge
+        sql:
+                driver: bridge
+
+secrets:
+        wp-nooblet-dbpasswd:
+                file: ./wordpress/wp-nooblet-dbpasswd.secret
+        wp-thelittlejedi-dbpasswd:
+                file: ./wordpress/wp-thelittlejedi-dbpasswd.secret
+        wp-cooshee-dbpasswd:
+                file: ./wordpress/wp-cooshee-dbpasswd.secret
+        root-dbpasswd:
+                file: ./secrets/root-dbpasswd.secret
