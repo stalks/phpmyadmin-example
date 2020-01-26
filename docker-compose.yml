@@ -22,9 +22,9 @@ services:
                 container_name: pma-example-sql1
                 environment:
                         - MYSQL_ROOT_PASSWORD=insecurerootpassword
-                        - MYSQL_USER=pma
                         - MYSQL_DATABASE=phpmyadmin
-                        - MYSQL_PASS=pmapassword
+                        - MYSQL_USER=pma
+                        - MYSQL_PASSWORD=pmapassword
                 networks:
                         - net
         sql2:
