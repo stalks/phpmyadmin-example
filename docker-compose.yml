@@ -6,7 +6,8 @@ services:
                 container_name: pma-example
                 restart: unless-stopped
                 depends_on:
-                        - sql
+                        - sql1
+                        - sql2
                 environment: 
                         PMA_HOSTS: sql1,sql2
                         PMA_CONTROLHOST: sql1
