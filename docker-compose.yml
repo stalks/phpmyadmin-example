@@ -13,6 +13,7 @@ services:
                         PMA_CONTROLHOST: pma-example-sql1
                         PMA_CONTROLUSER: pma
                         PMA_CONTROLPASS: pmapassword
+                        PMA_CONTROLPORT: 3306
                 networks:
                         - net
                 ports:
