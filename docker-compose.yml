@@ -2,7 +2,7 @@ version: '3.1'
 
 services:
         phpmyadmin:
-                image: phpmyadmin/phpmyadmin:4.9.4
+                image: phpmyadmin/phpmyadmin:5.0.1
                 container_name: pma-example
                 restart: unless-stopped
                 depends_on:
